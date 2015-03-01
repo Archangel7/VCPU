@@ -352,13 +352,3 @@ void help()
 	printf("z   reset all registers to zero\n");
 	printf("?, h display list of commands\n");
 }
-/*****************
-*****************/
-void resetRegisters()
-{
-	clearRegisters();
-}
-void trace(void *memory)
-{
-
-}
