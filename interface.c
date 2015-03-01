@@ -3,7 +3,6 @@
 * for a virtual CPU 
 *
 * Creation Date: january 30, 2015
-* Author: Michael Cox
 *
 *****************************************/
 #include "input.h"
