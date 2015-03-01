@@ -1,6 +1,5 @@
 /*************************************
 * File: functionBody.h
-* Author: Michael Cox
 * Date Created: January 30th, 2015
 *
 *************************************/
