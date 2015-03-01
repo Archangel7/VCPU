@@ -1,6 +1,5 @@
 /***********************************
 * File: functionDef.h
-* Author: Michael Cox
 * Date Created: January 30th, 2015
 *
 ***********************************/
