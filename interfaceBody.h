@@ -37,9 +37,10 @@ void memModify(void *memory)
 	int count;
 	unsigned length = 0x1;
 	char input[inputMax];
-	char *dot = ".";
+	char *dot ;
 	int correct = 0;
 
+	dot = ".";
 		printf("Enter the starting address: ");
 		start_addr = getinput("%X");  //gets the userinput according to the format given
 
