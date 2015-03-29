@@ -1,5 +1,6 @@
 /*************************************
 * File: functionBody.h
+* Author: Michael Cox
 * Date Created: January 30th, 2015
 *
 *************************************/
@@ -37,7 +38,7 @@ void memModify(void *memory)
 	int count;
 	unsigned length = 0x1;
 	char input[inputMax];
-	char *dot ;
+	char *dot;
 	int correct = 0;
 
 	dot = ".";
@@ -100,10 +101,10 @@ void memDump(void *memptr, unsigned offset, unsigned length)
 {
 	int count;
 	int counter;
-
+	
 	for (count = offset; count < (offset + length); count += cols)
 	{
-			printf("\n");
+			printf("\n\r");
 			printf(" %04x: ",count);    // displays the offset
 
 			// didsplays the raw hex values of the file contents
@@ -113,7 +114,7 @@ void memDump(void *memptr, unsigned offset, unsigned length)
 				 if(counter == (offset + length))
 					 break;
 
-				 printf("%02x ", 0xFF & ((char*)memptr)[counter]);
+				 printf("%02x ", (( unsigned char*)memptr)[counter]);
 				counter++;
 			}
 
@@ -155,12 +156,12 @@ void memDump(void *memptr, unsigned offset, unsigned length)
 ************************************************/
 unsigned getinput(char *format)
 {
-	int count =0;
-	int correct = 0;
+	int count = 0;
+	int incorrect = 0;
 	unsigned retvalue =0;
 	char input[nameLength];
 check:
-	correct = 0;
+	incorrect = 0;
 	fgets(input,sizeof input,stdin);
 	input[strlen(input)-1] = '\0';
 
@@ -175,10 +176,10 @@ check:
 		for (count = 0; count < strlen(input); count ++)
 		{
 			if(isxdigit(input[count])==0)
-				correct = 1;
+				incorrect = 1;
 		}
 
-		if(correct == 1)
+		if(incorrect == 1)
 		{
 			printf("Please enter a valid hex digit: ");
 			goto check;
@@ -191,16 +192,15 @@ check:
 		for (count = 0; count < strlen(input); count ++)
 		{
 			if(isdigit(input[count])==0)
-				correct = 1;
+				incorrect = 1;
 		}
-		if(correct == 1)
+		if(incorrect == 1)
 		{
 			printf("Please enter a valid integer: ");
 			goto check;
 		}
 		sscanf(input,"%i",&retvalue);
 	}
-
 	return retvalue;
 }
 /***************************************************
@@ -351,4 +351,17 @@ void help()
 	printf("w   write file\n");
 	printf("z   reset all registers to zero\n");
 	printf("?, h display list of commands\n");
+}
+/*****************
+*****************/
+void resetRegisters()
+{
+	reset();
+}
+/***************************
+**************************/
+void trace(void *memory)
+{
+	displayRegisters();
+	exec(memory);	
 }
