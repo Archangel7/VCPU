@@ -6,14 +6,15 @@
 #include <stdint.h>
 #define numOfRegisters 15
 #define numOfShifts 4
+#define MEMSIZE 16384
 #define maskvalue 0xE000
 #define RDmask 0x000F
-#define MAX32 4
+#define MAX32 32
 #define RNmask 0x00F0
 #define valuemask 0x0FF0
 #define opcodemask 0x3000
 #define loadmask 0x800
-#define bytemask 0x400
+#define bytemask 0x400  //word bit mask
 #define PC registers[15]
 #define SP registers[13]
 #define LR registers[14]
@@ -34,13 +35,14 @@ unsigned long IR = 0;
 unsigned short IR0 = 0;
 unsigned short IR1 = 0;
 unsigned short RD = 0;
-unsigned short *RN = 0;
+unsigned short RN = 0;
 unsigned short L = 0;
 unsigned short B = 0;
+uint32_t ALU = 0;
+unsigned short byte =0;
 
 unsigned long registers[numOfRegisters] = {0};
 enum regNames{r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,r12,r13,r14,r15}; // register names
-
 
 /**********************************************
 * Function name: clearFlags
@@ -114,7 +116,7 @@ void reset()
 *    the shift operatior
 ************************************************/
 void fetch(void *memory)
-{	
+{
 	int count = 0;
 	MAR = PC;
 	
@@ -123,7 +125,7 @@ void fetch(void *memory)
 		MBR = MBR << 8;
 		MBR += ((unsigned char *)memory)[MAR + count];
 	}
-		PC = PC + (long)sizeof(long);
+		PC = PC + sizeof(float);
 		IR = MBR;
 }
 void split()
@@ -133,33 +135,36 @@ void split()
 }
 
 void exec(void *memory)
-{	
+{
 	if (flags.IRactive == 0)
 	{
 		fetch(memory);
 		split();
-		printf("%04x\n",IR0);
-		execute(IR0);
+		//printf("%04x\n",IR0);
+		execute(IR0, memory);
 		flags.IRactive = 1;
 	}
 	else
 	{
 		split();
-		printf("%04x\n",IR1);
-		execute(IR1);
+		//printf("%04x\n",IR1);
+		execute(IR1, memory);
 		flags.IRactive = 0;
 	}
 }
-void execute(unsigned short IR2)
+void execute(unsigned short IR2, void *memory)
 {
 	unsigned val = (IR2 & valuemask) >> 4;
-	unsigned short shift  = (IR2 & maskvalue);
+	unsigned short shift  = (IR2 & maskvalue) >> 13;
 	unsigned short shift2;
-	unsigned short byte = (IR2 & bytemask);
+	int count = 0;
 
-	L = (IR2 & loadmask);
-	*RN = (IR2 & RNmask);
-	RD = (IR2 & RDmask);
+	byte = (bytemask & IR2) >> 10;
+	L  = (loadmask & IR2) >> 11;
+	RN = (IR2 & RNmask) >> 4;
+	RD = (IR2  & RDmask) ;
+
+	//printf("%04x\n",shift);
 	
 	switch(shift)
 	{
@@ -167,86 +172,106 @@ void execute(unsigned short IR2)
 						printf("data processing\n");
 						break;
 			case 1:
-						printf("load/store\n");
-
+						//printf("load/store\n");
+						//printf("%04X\n",L);
 						switch(L)
 						{
-						case 0:
-								if(byte == 0)
-								{
+							//printf("%x\n\n\n",L);
+							case 0:
+									printf("store\n");
+									MAR = registers[RN];
+									
+									if(byte == 0)
+									{
+										printf("word\n");
+										MBR = registers[RD];
+										MAR = registers[RN];
 
-								}
+										for(count = 0; count <= 1; count ++)
+										{
+											((unsigned char*)memory)[MAR + count] = MBR;
+											MBR >> 8;
+										}
+									}
+									else if(byte == 1)
+									{
+										printf("byte\n");								
+										MBR = registers[RD];
+										((unsigned char*)memory)[MAR] = MBR;
+									}
+									break;
+							case 1:
+									printf("load\n");
+									if(byte == 1)
+									{
+										printf("byte\n");										
+										MAR = registers[RN];
+										MBR = ((unsigned char*)memory)[MAR];
+										registers[RD] = MBR;
+									}
+									else if(byte == 0)
+									{
+										printf("word\n");
+										MAR = registers[RN];
+										
+										for(count = 1; count >= 0; count --)
+										{
+											MBR += ((unsigned char*)memory)[MAR + count];
+											MBR = MBR >>8;
+										}
+										registers[RD] = MBR;						
+									}
 								break;
-
-						case 1:
-								if(byte == 0)
-								{
-
-								}
-							break;
-						}
+							}
 						break;
 			case 2:
 			case 3:
-						//printf("immediate operations\n");						
+						//printf("immediate operations\n");
 						shift2 = (IR2 & opcodemask) >> 12;						
-
 						switch(shift2)
 						{
 							case 0:
-									//printf("MOV\n");
+								//	printf("MOV\n");
 									registers[RD] = val;
 									break;
-							case 1: 
+							case 1:
 									//printf("CMP\n");
-									registers[RD]  -= val;
+									if((registers[RD] - val) == 0)
+										flags.zero = 1;
+									else
+										flags.zero = 0;
+
 									break;
 							case 2:
-									//printf("ADD\n");
+								//	printf("ADD\n");
 									registers[RD]  += val;
+									flags.carry = iscarry(registers[RD],val,flags.carry);									
 									break;
 							case 3:
-								//	printf("SUB\n");
-									registers[RD] -= val;
-									break;							
-						}						
+									//printf("SUB\n");
+									ALU = registers[RD] + (~val+1);
+									flags.carry = iscarry(registers[RD],val,flags.carry);
+									registers[RD] = ALU;
+									break;
+						}
 						break;
 			case 5:
 						printf("push/pull\n");
 						break;
 			case 6:
 						printf("unconditional branch\n");
+
+
+
 						break;
 			case 7:
 						printf("stop\n");
+						flags.stop = 1;
 						break;
-			default: 
+			default:
 						printf("Not a valid type\n");
 						break;
 	}
-}
-/*************************************************************************
-*************************************************************************/
-unsigned maskvalues(unsigned short valueToMask, int start, int finish)
-{
-	int shifter = 1;
-	unsigned maskedvalue;
-	uint16_t mask = (shifter << (start - finish)) - shifter;
-	maskedvalue =  (valueToMask >> start) & mask;
-	return maskedvalue;
-}
-
-void stop()
-{
-	flags.stop = 1;
-}
-void sign()
-{
-
-}
-void zero()
-{
-
 }
 /********************************************************************
   iscarry()- determine if carry is generated by addition: op1+op2+C
@@ -261,9 +286,3 @@ int iscarry(unsigned long op1, unsigned long op2, unsigned c)
 	else
 		return ((op1 > (MAX32 - op2 -c)) ? 1:0);
 }
-
-void loadStore()
-{
-
-}
-
