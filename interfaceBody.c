@@ -10,7 +10,7 @@
 #include <time.h>
 #include <ctype.h>
 #include <signal.h>
-#include "CPU.h"
+#include "CPU.c"
 
 #define inputMax 10
 #define memsize 16384        //size of computer memory 
@@ -352,8 +352,6 @@ void help()
 	printf("z   reset all registers to zero\n");
 	printf("?, h display list of commands\n");
 }
-/*****************
-*****************/
 void resetRegisters()
 {
 	reset();
@@ -362,6 +360,6 @@ void resetRegisters()
 **************************/
 void trace(void *memory)
 {
+	exec(memory);
 	displayRegisters();
-	exec(memory);	
 }
