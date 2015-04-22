@@ -139,6 +139,8 @@ void fetch(void *memory)
 {
 	int count = 0;
 	MAR = PC;
+
+	printf("value of MAR: %04x\nvalue of PC: %04x\n",MAR,PC);
 	
 	for (count = 0; count < numOfShifts; count ++)  //shifts 32 bits to the left
 	{
@@ -146,7 +148,9 @@ void fetch(void *memory)
 		MBR += ((unsigned char *)memory)[MAR + count];
 	}
 		PC = PC + sizeof(float);
-		IR = MBR;
+		IR = MBR; 
+
+			printf("value of MAR: %04x\nvalue of PC: %04x\N",MAR,PC);
 }
 void split()
 {
@@ -311,70 +315,76 @@ void execute(unsigned short IR2, void *memory)
 							}
 						break;
 			case 1:
-						//printf("load/store\n");
+						printf("load/store\n");
 						//printf("%04X\n",L);
 						switch(L)
 						{
 							//printf("%x\n\n\n",L);
 							case 0:
-									//printf("store\n");
+									printf("store\n");
 									MAR = registers[RN];
 									
 									if(byte == 0)
 									{
-									//	printf("word\n");
-										MBR = registers[RD];
+										printf("word\n");
+										
 										MAR = registers[RN];
+										//MBR = ((unsigned char*)memory)[MAR];
 
 										for(count = 0; count <= 1; count ++)
 										{
 											((unsigned char*)memory)[MAR + count] = MBR;
 											MBR >> 8;
 										}
+										
 									}
 									else if(byte == 1)
 									{
-									//	printf("byte\n");								
+										printf("byte\n");								
 										MBR = registers[RD];
 										((unsigned char*)memory)[MAR] = MBR;
 									}
 									break;
 							case 1:
-								//	printf("load\n");
+									printf("load\n");
 									if(byte == 1)
 									{
-									//	printf("byte\n");										
+										printf("byte\n");
 										MAR = registers[RN];
 										MBR = ((unsigned char*)memory)[MAR];
 										registers[RD] = MBR;
 									}
 									else if(byte == 0)
 									{
-									//	printf("word\n");
-										MAR = registers[RN];
+										printf("word\n");
 										
+										MAR = registers[RN];
+										MBR = ((unsigned char*)memory)[MAR];
+
 										for(count = 1; count >= 0; count --)
 										{
-											MBR += ((unsigned char*)memory)[MAR + count];
-											MBR = MBR >>8;
+											MBR = MBR << 8;
+											MBR += ((unsigned char*)memory)[MAR + count];											
 										}
+										printf("value of RD: %04x\n", RD);
 										registers[RD] = MBR;
+										
 									}
 								break;
 							}
 						break;
 			case 2:
 			case 3:
-						//printf("immediate operations\n");
+						printf("immediate operations\n");
 						shift2 = (IR2 & opcodemask) >> 12;
 						switch(shift2)
 						{
 							case 0:
-								//	printf("MOV\n");
+									printf("MOV\n");
 									registers[RD] = val;
 									break;
 							case 1:
-									//printf("CMP\n");
+									printf("CMP\n");
 									if((registers[RD] - val) == 0)
 										flags.zero = 1;
 									else
@@ -382,13 +392,13 @@ void execute(unsigned short IR2, void *memory)
 
 									break;
 							case 2:
-								//	printf("ADD\n");
+									printf("ADD\n");
 									registers[RD] += val;
 									issign(registers[RD]);  //if the result is a negative, set the sign flag
 									flags.carry = iscarry(registers[RD],val,flags.carry);
 									break;
 							case 3:
-									//printf("SUB\n");
+									printf("SUB\n");
 									ALU = registers[RD] + (~val+1);
 									flags.carry = iscarry(ALU,val,flags.carry);
 									issign(ALU); //if the result is a negative, set the sign flag
@@ -399,6 +409,7 @@ void execute(unsigned short IR2, void *memory)
 
 			case 4:
 				printf("conditional branch\n");
+				flags.IRactive =0;
 				switch(condition)
 				{
 					case 0:
@@ -443,6 +454,7 @@ void execute(unsigned short IR2, void *memory)
 						{
 						case 0:
 							//push
+							/*
 							printf("push\n");
 							if(H == 0)
 							{
@@ -482,11 +494,12 @@ void execute(unsigned short IR2, void *memory)
 								}
 								//printf("%04x\n",registers[(regcounter+8)]);
 							}
+							*/
 							break;
 
 						case 1:
 							printf("pull\n");
-							
+							/*
 							if(H == 0)
 							{
 								printf("pull low registers\n");
@@ -497,11 +510,13 @@ void execute(unsigned short IR2, void *memory)
 								printf("pull high registers\n");
 
 							}
+							*/
 							break;
 						}
 						break;
 			case 6:
 						printf("unconditional branch\n");
+						flags.IRactive =0;
 						if(linkbit == 0)
 						{
 							PC = offset;
