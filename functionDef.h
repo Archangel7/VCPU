@@ -1,3 +1,4 @@
+#include <stdint.h>
 /***********************************
 * File: functionDef.h
 * Author: Michael Cox
@@ -16,12 +17,13 @@ unsigned getinput(char *format);
 void resetRegisters();
 void trace(void *);
 void clearRegisters();
-unsigned maskvalues(unsigned short valueToMask, int start, int finish);
 void clearFlags();
+void issign(uint32_t);
 void reset();
 void split();
+void go(void *);
 void displayRegisters();
 void fetch(void *memory);
-void exec(void *);
-void execute(unsigned short*);
+void decode(void *);
+void execute(unsigned short,void *);
 int iscarry(unsigned long op1, unsigned long op2, unsigned c);
