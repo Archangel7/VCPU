@@ -1,10 +1,11 @@
 /**********************************
-* Author: Michael Cox
-* Creation date: Feburary 27, 2015
-***********************************/
+ * Author: Michael Cox
+ * Creation date: Feburary 27, 2015
+ ***********************************/
 #include <stdio.h>
 #include <stdint.h>
 #define numOfRegisters 15
+#define MSBmask 0xFF000000
 #define numOfShifts 4
 #define MEMSIZE 16384
 #define maskvalue 0xE000
@@ -30,11 +31,11 @@
 #define registersize 32
 typedef struct
 {
-	int stop; 
-	int carry;
-	int sign;
-	int IRactive;
-	int zero;
+    int stop; 
+    int carry;
+    int sign;
+    int IRactive;
+    int zero;
 }FLAGS;
 
 FLAGS flags;
@@ -65,490 +66,516 @@ unsigned long registers[numOfRegisters] = {0};
 enum regNames{r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,r12,r13,r14,r15}; // register names
 
 /**********************************************
-* Function name: clearFlags
-* Description: 
-*   This function resets the flags to zero
-***********************************************/
+ * Function name: clearFlags
+ * Description: 
+ *   This function resets the flags to zero
+ ***********************************************/
 void clearFlags()
 {
-	flags.stop  = 0;
-	flags.carry = 0;
-	flags.IRactive = 0;
-	flags.sign  = 0;
-	flags.zero  = 0;
+    flags.stop  = 0;
+    flags.carry = 0;
+    flags.IRactive = 0;
+    flags.sign  = 0;
+    flags.zero  = 0;
 }
 /***********************************************
-* Function name: clearRegisters
-* Description: 
-*    This function resets all the registers
-*    to zero
-***********************************************/
+ * Function name: clearRegisters
+ * Description: 
+ *    This function resets all the registers
+ *    to zero
+ ***********************************************/
 void clearRegisters()
 {
-	int count = 0;
-	for( count = 0; count <= numOfRegisters; count ++)
-	{
-		registers[count] = 0;
-	}
-	MBR = 0;
-	MAR = 0;
-	IR  = 0;
+    int count = 0;
+    for( count = 0; count <= numOfRegisters; count ++)
+    {
+	registers[count] = 0;
+    }
+    MBR = 0;
+    MAR = 0;
+    IR  = 0;
 }
 /******************************************************
-* Function name: displayRegisters
-* Description:
-*     This function displays all the 
-*     registers and flags
-******************************************************/
+ * Function name: displayRegisters
+ * Description:
+ *     This function displays all the 
+ *     registers and flags
+ ******************************************************/
 void displayRegisters()
 {
-	int count;
-	
-	for (count = 0; count <= numOfRegisters-3; count ++)
-	{
-		printf("r[%i]:%08lX   ",count, registers[count]);
-	}
-	printf("\b\b ");
-	printf("r[13](SP):%08X            r[14](LR):%08X r[15](PC):%08X",SP,LR,PC);
+    int count;
 
-	printf("\nMAR:%08lX MBR:%08lX IR:%08lX", MAR,MBR,IR);
-	printf("\nStop:%i IRactive:%i",flags.stop,flags.IRactive);
+    for (count = 0; count <= numOfRegisters-3; count ++)
+    {
+	printf("r[%i]:%08lX   ",count, registers[count]);
+    }
+    printf("\b\b ");
+    printf("r[13](SP):%08X            r[14](LR):%08X r[15](PC):%08X",SP,LR,PC);
 
-	printf("\t\t\tCSZ:%i%i%i",flags.carry,flags.sign,flags.zero);
-	printf("\n");
+    printf("\nMAR:%08lX MBR:%08lX IR:%08lX", MAR,MBR,IR);
+    printf("\nStop:%i IRactive:%i",flags.stop,flags.IRactive);
+
+    printf("\t\t\tCSZ:%i%i%i",flags.carry,flags.sign,flags.zero);
+    printf("\n");
 }
 /*************************************
-*  Function name: reset
-*  Description: 
-*       This function clears both registers
-*		and flags(called on startup)
-**************************************/
+ *  Function name: reset
+ *  Description: 
+ *       This function clears both registers
+ *		and flags(called on startup)
+ **************************************/
 void reset()
 {
-	clearRegisters();
-	clearFlags();
+    clearRegisters();
+    clearFlags();
 }
 /************************************************
-* Function name: fetch
-* Description:  
-*    This function packs data from memory
-*    into the MAR and MBR registers by using
-*    the shift operatior
-************************************************/
+ * Function name: fetch
+ * Description:  
+ *    This function packs data from memory
+ *    into the MAR and MBR registers by using
+ *    the shift operatior
+ ************************************************/
 void fetch(void *memory)
 {
-	int count = 0;
-	MAR = PC;
+    int count = 0;
+    MAR = PC;
 
-	printf("value of MAR: %04x\nvalue of PC: %04x\n",MAR,PC);
-	
-	for (count = 0; count < numOfShifts; count ++)  //shifts 32 bits to the left
-	{
-		MBR = MBR << 8;
-		MBR += ((unsigned char *)memory)[MAR + count];
-	}
-		PC = PC + sizeof(float);
-		IR = MBR; 
+    printf("value of MAR: %04x\nvalue of PC: %04x\n",MAR,PC);
 
-			printf("value of MAR: %04x\nvalue of PC: %04x\N",MAR,PC);
+    for (count = 0; count < numOfShifts; count ++)  //shifts 32 bits to the left
+    {
+	MBR = MBR << 8;
+	MBR += ((unsigned char *)memory)[MAR + count];
+    }
+    PC = PC + sizeof(float);
+    IR = MBR; 
+
+    printf("value of MAR: %04x\nvalue of PC: %04x\n",MAR,PC);
 }
 void split()
 {
-	IR0 = IR >> 16;
-	IR1 = IR >> 32;
+    IR0 = IR >> 16;
+    IR1 = IR >> 32;
 }
 
 void decode(void *memory)
 {
-	if (flags.IRactive == 0)
-	{
-		fetch(memory);
-		split();
-		//printf("%04x\n",IR0);
-		execute(IR0, memory);
-		flags.IRactive = 1;
-	}
-	else
-	{
-		split();
-		//printf("%04x\n",IR1);
-		execute(IR1, memory);
-		flags.IRactive = 0;
-	}
+    if (flags.IRactive == 0)
+    {
+	fetch(memory);
+	split();
+	//printf("%04x\n",IR0);
+	flags.IRactive = 1;
+	execute(IR0, memory);
+
+    }
+    else
+    {
+	split();
+	//printf("%04x\n",IR1);
+	flags.IRactive = 0;
+	execute(IR1, memory);
+
+    }
 }
 void go(void *memory)
 {
-	while (flags.stop != 1)
-	{
-		decode(memory);
-	}
+    while (flags.stop != 1)
+    {
+	decode(memory);
+    }
 }
 
 
 void execute(unsigned short IR2, void *memory)
 {
-	unsigned val = (IR2 & valuemask) >> 4;
-	unsigned short shift  = (IR2 & maskvalue) >> 13;
-	unsigned short shift2;
-	int count = 0;
-	int regcount = 0;
-	byte = (bytemask & IR2) >> 10;
-	L  = (loadmask & IR2) >> 11;
-	RN = (IR2 & RNmask) >> 4;
-	RD = (IR2  & RDmask);
-	condition = (IR2 & conditionmask) >>8;
-	memaddress = (IR2 & memmask);
-	linkbit = (IR2 & linkbitmask) >> 12;
-	offset = (IR2 & offsetmask);
-	operation = (IR2 & operationmask) >> 12;
-	R = (IR2 & Rmask) >> 8;
-	H = (IR2 & Hmask) >> 10;
-	reglist = (IR2 & reglistmask) >> 8;
-	//printf("%04x\n",shift);
-	
-	switch(shift)
-	{
-			case 0:
-						//printf("data processing\n");
-						switch(operation)
-						{
-							case 0:  //AND
-								ALU = (registers[RD] & registers[RN]); 
-								issign(ALU);
-								registers[RD] = ALU;
-								break;
+    unsigned val = (IR2 & valuemask) >> 4;
+    unsigned short shift  = (IR2 & maskvalue) >> 13;
+    unsigned short shift2;
+    int count = 0;
+    int regcount = 0;
+    byte = (bytemask & IR2) >> 10;
+    L  = (loadmask & IR2) >> 11;
+    RN = (IR2 & RNmask) >> 4;
+    RD = (IR2  & RDmask);
+    condition = (IR2 & conditionmask) >>8;
+    memaddress = (IR2 & memmask);
+    linkbit = (IR2 & linkbitmask) >> 12;
+    offset = (IR2 & offsetmask);
+    operation = (IR2 & operationmask) >> 8;
+    R = (IR2 & Rmask) >> 8;
+    H = (IR2 & Hmask) >> 10;
+    reglist = (IR2 & reglistmask) >> 8;
+    //printf("%04x\n",shift);
+    printf("type: %X\noperation: %X\nRN: %X\nRD: %X\n", shift, operation, RN, RD);
 
-							case 1: //EOR
-								ALU = registers[RD] ^ registers[RN];  //EOR
-								issign(ALU);
-								registers[RD] = ALU;
-								break;
+    switch(shift)
+    {
+	case 0:
+	    //printf("data processing\n");
+	    switch(operation)
+	    {
+		case 0:  //AND
+		    ALU = (registers[RD] & registers[RN]); 
+		    issign(ALU);
+		    registers[RD] = ALU;
+		    break;
 
-							case 2: //SUB
-								ALU -= registers[RN];
-								issign(ALU);
-								registers[RD] = ALU;
-								break;
+		case 1: //EOR
+		    ALU = registers[RD] ^ registers[RN];  //EOR
+		    issign(ALU);
+		    registers[RD] = ALU;
+		    break;
 
-							case 3: //SXB
-								registers[RD] = (signed)registers[RN];
-								issign(registers[RD]);
-								break;
+		case 2: //SUB
+		    ALU -= registers[RN];
+		    issign(ALU);
+		    registers[RD] = ALU;
+		    break;
 
-							case 4:  //ADD
-								ALU = registers[RD] + registers[RN];
-								issign(registers[RD]);
-								flags.carry = iscarry(ALU,val,flags.carry);
-								registers[RD] = ALU;
-								break;
+		case 3: //SXB
+		    registers[RD] = (signed)registers[RN];
+		    issign(registers[RD]);
+		    break;
 
-							case 5: //ADC
-								registers[RD] += registers[RN] + flags.carry;
-								flags.carry = iscarry(ALU,val,flags.carry);
-								break;
+		case 4:  //ADD
+		    ALU = registers[RD] + registers[RN];
 
-							case 6: //LSR
-								registers[RD] >> registers[RN];
-								flags.carry = iscarry(registers[RD],val,flags.carry);
-								issign(registers[RD]);
-								break;
+		    issign(ALU);
+		    flags.carry = iscarry(ALU,registers[RN],flags.carry);
+		    registers[RD] = ALU;
+		    break;
 
-							case 7: //LSL
-								registers[RD] << registers[RN];
-								flags.carry = iscarry(registers[RD],val,flags.carry);
-								issign(registers[RD]);
-								break;
+		case 5: //ADC
+		    registers[RD] += registers[RN] + flags.carry;
+		    flags.carry = iscarry(ALU,val,flags.carry);
+		    break;
 
-							case 8: //TST
-									ALU = registers[RD] & registers[RN];
-									issign(ALU);					
-								break;
+		case 6: //LSR
+		    registers[RD] >> registers[RN];
+		    flags.carry = iscarry(registers[RD],val,flags.carry);
+		    issign(registers[RD]);
+		    break;
 
-							case 9: //TEQ
-								registers[RD] ^ registers[RN] + 1;
-								issign(registers[RD]);
-								break;
+		case 7: //LSL
+		    registers[RD] << registers[RN];
+		    flags.carry = iscarry(registers[RD],val,flags.carry);
+		    issign(registers[RD]);
+		    break;
 
-							case 10: //CMP
-								ALU = registers[RD] + ~ registers[RN] +1;
-								issign(ALU);
-								flags.carry = (ALU,val,flags.carry);
-								registers[RD] = ALU;
-								break;
+		case 8: //TST
+		    ALU = registers[RD] & registers[RN];
+		    issign(ALU);					
+		    break;
 
-							case 11: //ROR
+		case 9: //TEQ
+		    registers[RD] ^ registers[RN] + 1;
+		    issign(registers[RD]);
+		    break;
 
-								for (count = 0; count < registers[RN] ;count ++)
-								{
-									flags.carry = registers[RN] & 0x0001;
-									if(flags.carry)
-									{
-										ALU = (registers[RD] >> 1) | 0x80000000;
-									}
-								}
-								issign(ALU);
-								flags.carry = iscarry(ALU,val,flags.carry);
-								registers[RD] = ALU;
-								break;
+		case 10: //CMP
+		    ALU = registers[RD] + ~ registers[RN] +1;
+		    issign(ALU);
+		    flags.carry = (ALU,registers[RN],flags.carry);
+		    registers[RD] = ALU;
+		    break;
 
-							case 12: //ORR
-									ALU = registers[RD] | registers[RN];
-									issign(ALU);
-									registers[RD] = ALU;
-								break;
+		case 11: //ROR
 
-							case 13:  //MOV
-								registers[RD] = registers[RN];
-								issign(registers[RD]);
-								break;
+		    for (count = 0; count < registers[RN] ;count ++)
+		    {
+			flags.carry = registers[RN] & 0x0001;
+			if(flags.carry)
+			{
+			    ALU = (registers[RD] >> 1) | 0x80000000;
+			}
+		    }
+		    issign(ALU);
+		    flags.carry = iscarry(ALU,registers[RN],flags.carry);
+		    registers[RD] = ALU;
+		    break;
 
-							case 14: //BIC
-								ALU = 	registers[RD] & ~registers[RN];
-								issign(registers[RD]);
-								registers[RD] = ALU;
-								break;
+		case 12: //ORR
+		    ALU = registers[RD] | registers[RN];
+		    issign(ALU);
+		    registers[RD] = ALU;
+		    break;
 
-							case 15: //MVN
-								registers[RD] = ~registers[RN];
-								issign(registers[RD]);
-								break;
-							}
-						break;
-			case 1:
-						printf("load/store\n");
-						//printf("%04X\n",L);
-						switch(L)
-						{
-							//printf("%x\n\n\n",L);
-							case 0:
-									printf("store\n");
-									MAR = registers[RN];
-									
-									if(byte == 0)
-									{
-										printf("word\n");
-										
-										MAR = registers[RN];
-										//MBR = ((unsigned char*)memory)[MAR];
+		case 13:  //MOV
+		    registers[RD] = registers[RN];
+		    issign(registers[RD]);
+		    break;
 
-										for(count = 0; count <= 1; count ++)
-										{
-											((unsigned char*)memory)[MAR + count] = MBR;
-											MBR >> 8;
-										}
-										
-									}
-									else if(byte == 1)
-									{
-										printf("byte\n");								
-										MBR = registers[RD];
-										((unsigned char*)memory)[MAR] = MBR;
-									}
-									break;
-							case 1:
-									printf("load\n");
-									if(byte == 1)
-									{
-										printf("byte\n");
-										MAR = registers[RN];
-										MBR = ((unsigned char*)memory)[MAR];
-										registers[RD] = MBR;
-									}
-									else if(byte == 0)
-									{
-										printf("word\n");
-										
-										MAR = registers[RN];
-										MBR = ((unsigned char*)memory)[MAR];
+		case 14: //BIC
+		    ALU = registers[RD] & ~registers[RN];
+		    issign(registers[RD]);
+		    registers[RD] = ALU;
+		    break;
 
-										for(count = 1; count >= 0; count --)
-										{
-											MBR = MBR << 8;
-											MBR += ((unsigned char*)memory)[MAR + count];											
-										}
-										printf("value of RD: %04x\n", RD);
-										registers[RD] = MBR;
-										
-									}
-								break;
-							}
-						break;
-			case 2:
-			case 3:
-						printf("immediate operations\n");
-						shift2 = (IR2 & opcodemask) >> 12;
-						switch(shift2)
-						{
-							case 0:
-									printf("MOV\n");
-									registers[RD] = val;
-									break;
-							case 1:
-									printf("CMP\n");
-									if((registers[RD] - val) == 0)
-										flags.zero = 1;
-									else
-										flags.zero = 0;
+		case 15: //MVN
+		    registers[RD] = ~registers[RN];
+		    issign(registers[RD]);
+		    break;
+	    }
+	    break;
+	case 1:
+	    printf("load/store\n");
+	    uint32_t MSmask = MSBmask;
+	    //printf("%04X\n",L);
+	    switch(L)
+	    {
+		//printf("%x\n\n\n",L);
+		case 0:
+		    printf("store\n");
 
-									break;
-							case 2:
-									printf("ADD\n");
-									registers[RD] += val;
-									issign(registers[RD]);  //if the result is a negative, set the sign flag
-									flags.carry = iscarry(registers[RD],val,flags.carry);
-									break;
-							case 3:
-									printf("SUB\n");
-									ALU = registers[RD] + (~val+1);
-									flags.carry = iscarry(ALU,val,flags.carry);
-									issign(ALU); //if the result is a negative, set the sign flag
-									registers[RD] = ALU;
-									break;
-						}
-						break;
+		    if(byte == 0)
+		    {
+			printf("word\n");
 
-			case 4:
-				printf("conditional branch\n");
-				flags.IRactive =0;
-				switch(condition)
-				{
-					case 0:
-							if(flags.zero = 1)
-							{
-								PC = memaddress;
-							}
-						break;
+			MAR = registers[RN];
+			MBR = registers[RD];
+			
+			for(count = 0; count < 4; count ++)
+			{
+			    ((unsigned char*)memory)[MAR ++] = (MBR & MSmask) >> (8 * (3- count));
+			    MSmask = MSmask >> 8;
+			}
 
-					case 1:
-							if(flags.zero = 0)
-							{
-								PC = memaddress;
-							}
-						break;
+		    }	
+		
+		else if(byte == 1)
+		    {
+			printf("byte\n");								
+			MBR = registers[RD];
+			((unsigned char*)memory)[MAR] = MBR;
+		    }
+		    break;
+		case 1:
+		    printf("load\n");
+		    if(byte == 1)
+		    {
+			printf("byte\n");
+			MAR = registers[RN];
+			MBR = ((unsigned char*)memory)[MAR];
+			registers[RD] = MBR;
+		    }
+		    else if(byte == 0)
+		    {
+			printf("word\n");
 
-					case 2:
-							if(flags.carry = 1)
-							{
-								PC = memaddress;
-							}
-						break;
-					case 3:
-							if(flags.carry = 0)
-							{
-								PC = memaddress;
-							}
-							break;
-					case 4:
-							if(flags.sign= 1)
-							{
-								PC = memaddress;
-							}
-						break;
-				}
-				break;
+			MAR = registers[RN];
+			MBR = registers[RD];
+			for(count = 4; count > 0; count --)
+			{
+			    MBR = MBR << 8;
+			    MBR += ((unsigned char*)memory)[MAR ++];	
+			}
+			registers[RD] = MBR;
+			printf("value of RD: %04x\n", RD);
+			printf("value for registers[RD]: %04x\n",registers[RD]);
 
-			case 5:
-						printf("push/pull\n");
-						
-						switch(L)
-						{
-						case 0:
-							//push
-							/*
-							printf("push\n");
-							if(H == 0)
-							{
-								printf("push low registers\n");
 
-								SP = SP - 1;
-								SP = (MAR & bitmask);
+		    }
+		    break;
+	    }
+	    break;
+	case 2:
+	case 3:
+	    printf("immediate operations\n");
+	    shift2 = (IR2 & opcodemask) >> 12;
+	    switch(shift2)
+	    {
+		case 0:
+		    printf("MOV\n");
+		    registers[RD] = val;
+		    break;
+		case 1:
+		    printf("CMP\n");
+		    if((registers[RD] - val) == 0)
+			flags.zero = 1;
+		    else
+			flags.zero = 0;
 
-								for(regcount = 0; regcount < 8; regcount++)
-								{
-									//if(((reglist>>regcount)&1) == 1)
-								//	{
-										for (regcount = 0; regcount < registersize; regcount ++)
-										{
-											((uint8_t *)memory)[SP] = registers[regcounter] >> 1;
-										}
-									//}
-								}
-								printf("%04x\n",SP);
-								printf("%04x\n",((uint8_t *)memory)[SP]);
-							}
-							else if(H==1)
-							{
-								SP = SP - 1;
-								SP = (MAR & bitmask);
-								printf("push high registers\n");
-																
-								for(regcount = 0; regcount < 8; regcount++)
-								{
-									//if(((reglist>>regcount)&1) == 1)
-								//	{
-										for (regcount = 0; regcount < registersize; regcount ++)
-										{
-											((uint8_t *)memory)[SP] = registers[(regcounter + 8)] >> 1;
-										}
-									//}
-								}
-								//printf("%04x\n",registers[(regcounter+8)]);
-							}
-							*/
-							break;
+		    break;
+		case 2:
+		    printf("ADD\n");
+		    ALU =registers[RD] + registers[RN];
+		    
+		    printf("\nvalue of ALU: %04x\n",ALU);
+		    printf("value of RD: %04x\n",registers[RD]);
+		    printf("value of RN: %04x\n",registers[RN]);
 
-						case 1:
-							printf("pull\n");
-							/*
-							if(H == 0)
-							{
-								printf("pull low registers\n");
+		    issign(ALU);  //if the result is a negative, set the sign flag
+		    flags.carry = iscarry(ALU,registers[RN],flags.carry);
+		    break;
+		case 3:
+		    printf("SUB\n");
+		    ALU = registers[RD] + (~val+1);
+		    flags.carry = iscarry(ALU,val,flags.carry);
+		    issign(ALU); //if the result is a negative, set the sign flag
+		    registers[RD] = ALU;
+		    break;
+	    }
+	    break;
 
-							}
-							else if(H==1)
-							{
-								printf("pull high registers\n");
+	case 4:
+	    printf("conditional branch\n");
+	    flags.IRactive =0;
+	    switch(condition)
+	    {
+		case 0:
+		    if(flags.zero = 1)
+		    {
+			PC += memaddress;
+		    }
+		    break;
 
-							}
-							*/
-							break;
-						}
-						break;
-			case 6:
-						printf("unconditional branch\n");
-						flags.IRactive =0;
-						if(linkbit == 0)
-						{
-							PC = offset;
-						}
-						else
-						{
-							LR = PC;
-							PC = offset;
-						}
-						break;
-			case 7:
-						//printf("stop\n");
-						flags.stop = 1;
-						break;
-			default:
-						printf("Not a valid type\n");
-						break;
-	}
+		case 1:
+		    if(flags.zero = 0)
+		    {
+			PC += memaddress;
+		    }
+		    break;
+		case 2:
+		    if(flags.carry = 1)
+		    {
+			PC += memaddress;
+		    }
+		    break;
+		case 3:
+		    if(flags.carry = 0)
+		    {
+			PC += memaddress;
+		    }
+		    break;
+		case 4:
+		    if(flags.sign= 1)
+		    {
+			PC += memaddress;
+		    }
+		case 5:
+		     if(flags.sign == 0)
+		     {
+			PC += memaddress;
+		     }
+		     break;
+		case 8:
+		     if(flags.carry == 1 && flags.zero == 0)
+		     {
+			PC += memaddress;
+		     }
+		     break;
+		case 9:
+		     if(flags.carry == 0 && flags.zero ==1)
+		     {
+			PC += memaddress;
+		     }
+		     break;
+		case 0xE:
+		     PC += memaddress;
+		     break;
+	    }
+	    break;
+
+	case 5:
+	    printf("push/pull\n");
+
+	    switch(L)
+	    {
+		case 0:
+		    //push
+		    /*
+		       printf("push\n");
+		       if(H == 0)
+		       {
+		       printf("push low registers\n");
+		       SP = SP - 1;
+		       SP = (MAR & bitmask);
+		       for(regcount = 0; regcount < 8; regcount++)
+		       {
+		    //if(((reglist>>regcount)&1) == 1)
+		    //	{
+		    for (regcount = 0; regcount < registersize; regcount ++)
+		    {
+		    ((uint8_t *)memory)[SP] = registers[regcounter] >> 1;
+		    }
+		    //}
+		    }
+		    printf("%04x\n",SP);
+		    printf("%04x\n",((uint8_t *)memory)[SP]);
+		    }
+		    else if(H==1)
+		    {
+		    SP = SP - 1;
+		    SP = (MAR & bitmask);
+		    printf("push high registers\n");
+
+		    for(regcount = 0; regcount < 8; regcount++)
+		    {
+		    //if(((reglist>>regcount)&1) == 1)
+		    //	{
+		    for (regcount = 0; regcount < registersize; regcount ++)
+		    {
+		    ((uint8_t *)memory)[SP] = registers[(regcounter + 8)] >> 1;
+		    }
+		    //}
+		    }
+		    //printf("%04x\n",registers[(regcounter+8)]);
+		    }
+		     */
+		    break;
+
+		case 1:
+		    printf("pull\n");
+		    /*
+		       if(H == 0)
+		       {
+		       printf("pull low registers\n");
+		       }
+		       else if(H==1)
+		       {
+		       printf("pull high registers\n");
+		       }
+		     */
+		    break;
+	    }
+	    break;
+	case 6:
+	    printf("unconditional branch\n");
+	    flags.IRactive =0;
+	    if(linkbit == 0)
+	    {
+		PC = offset;
+	    }
+	    else
+	    {
+		LR = PC;
+		PC = offset;
+	    }
+	    break;
+	case 7:
+	    //printf("stop\n");
+	    flags.stop = 1;
+	    break;
+	default:
+	    printf("Not a valid type\n");
+	    break;
+    }
 }
 
-void issign(unsigned long ALU)
+void issign(uint32_t ALU)
 {
-	if( (ALU & 0xF000000) == 1)
-	{
-		flags.sign = 1;
-		flags.zero = 0;
-	}
-	else
-	{
-		flags.sign = 0;
-		flags.zero = 1;
-	}
+    if( (ALU & 0xF0000000) == 1)
+    {
+	flags.sign = 1;
+	flags.zero = 0;
+    }
+    else
+    {
+	flags.sign = 0;
+	flags.zero = 1;
+    }
 }
 /********************************************************************
   iscarry()- determine if carry is generated by addition: op1+op2+C
@@ -556,10 +583,10 @@ void issign(unsigned long ALU)
  *******************************************************************/
 int iscarry(unsigned long op1, unsigned long op2, unsigned c)
 {
-	if((op2 == MAX32) && (c==1))
-	{
-		return 1;
-	}
-	else
-		return ((op1 > (MAX32 - op2 -c)) ? 1:0);
+    if((op2 == MAX32) && (c==1))
+    {
+	return 1;
+    }
+    else
+	return ((op1 > (MAX32 - op2 -c)) ? 1:0);
 }
