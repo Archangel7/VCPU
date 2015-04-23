@@ -9,8 +9,8 @@
 #include <stdlib.h>
 #include <time.h>
 #include <ctype.h>
-#include "CPU.c"
-
+//#include "CPU2.c"
+#include "functionDef2.h"
 #define inputMax 10
 #define memsize 16384        //size of computer memory 
 #define fileNameLength 90
@@ -363,5 +363,5 @@ void resetRegisters()
 void trace(void *memory)
 {
     decode(memory);
-    displayRegisters();
+   // displayRegisters();
 }
