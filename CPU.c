@@ -4,6 +4,7 @@
  ***********************************/
 #include <stdio.h>
 #include <stdint.h>
+#include "functionDef2.h"
 #define numOfRegisters 15
 #define MSBmask 0xFF000000
 #define numOfShifts 4
@@ -20,7 +21,7 @@
 #define operationmask 0xF00
 #define Hmask 0x400
 #define conditionmask 0xF00
-#define memmask 0xFF
+#define memmask 0x00FF
 #define offsetmask 0xFFF
 #define linkbitmask 0x1000
 #define reglistmask 0xFF00
@@ -42,9 +43,14 @@ FLAGS flags;
 uint32_t MBR;
 uint32_t MAR;
 uint32_t IR = 0;
-//unsigned long MBR;
-//unsigned long MAR;
-//unsigned long IR = 0;
+
+
+//uint8_t branch;
+//uint32_t br;
+
+char branch;
+short rel_address;;
+
 unsigned short IR0 = 0;
 unsigned short IR1 = 0;
 unsigned short RD = 0;
@@ -148,10 +154,10 @@ void fetch(void *memory)
 	MBR = MBR << 8;
 	MBR += ((unsigned char *)memory)[MAR + count];
     }
-    PC = PC + sizeof(float);
-    IR = MBR; 
+	PC = PC + sizeof(numOfRegisters);
+    IR = MBR;
 
-    printf("value of MAR: %04x\nvalue of PC: %04x\n",MAR,PC);
+    
 }
 void split()
 {
@@ -164,10 +170,12 @@ void decode(void *memory)
     if (flags.IRactive == 0)
     {
 	fetch(memory);
+	printf("value of MARoutside of fetch: %04x\nvalue of PC outside of detch: %04x\n",MAR,PC);
 	split();
 	//printf("%04x\n",IR0);
 	flags.IRactive = 1;
 	execute(IR0, memory);
+	displayRegisters();
 
     }
     else
@@ -176,7 +184,7 @@ void decode(void *memory)
 	//printf("%04x\n",IR1);
 	flags.IRactive = 0;
 	execute(IR1, memory);
-
+	displayRegisters();
     }
 }
 void go(void *memory)
@@ -193,13 +201,23 @@ void execute(unsigned short IR2, void *memory)
     unsigned val = (IR2 & valuemask) >> 4;
     unsigned short shift  = (IR2 & maskvalue) >> 13;
     unsigned short shift2;
+	unsigned conditions;
     int count = 0;
     int regcount = 0;
+	uint32_t MSmask;
+
+	conditions = ((IR2 & 0xF00) >> 8);
+
+	branch = (IR2 & 0x00FF);
+	rel_address = branch;
+
+	//branch = memaddress;
+	//br = (uint32_t)branch;
     byte = (bytemask & IR2) >> 10;
     L  = (loadmask & IR2) >> 11;
     RN = (IR2 & RNmask) >> 4;
     RD = (IR2  & RDmask);
-    condition = (IR2 & conditionmask) >>8;
+    condition = (IR2 & conditionmask) >> 8;
     memaddress = (IR2 & memmask);
     linkbit = (IR2 & linkbitmask) >> 12;
     offset = (IR2 & offsetmask);
@@ -208,175 +226,175 @@ void execute(unsigned short IR2, void *memory)
     H = (IR2 & Hmask) >> 10;
     reglist = (IR2 & reglistmask) >> 8;
     //printf("%04x\n",shift);
-    printf("type: %X\noperation: %X\nRN: %X\nRD: %X\n", shift, operation, RN, RD);
+    printf("type: %04X\noperation: %X\nRN: %X\nRD: %X\n", shift, operation, RN, RD);
 
     switch(shift)
     {
 	case 0:
-	    //printf("data processing\n");
+	    printf("data processing\n");
 	    switch(operation)
 	    {
-		case 0:  //AND
-		    ALU = (registers[RD] & registers[RN]); 
-		    issign(ALU);
-		    registers[RD] = ALU;
-		    break;
+				case 0:  //AND
+					ALU = (registers[RD] & registers[RN]); 
+					issign(ALU);
+					registers[RD] = ALU;
+					break;
 
-		case 1: //EOR
-		    ALU = registers[RD] ^ registers[RN];  //EOR
-		    issign(ALU);
-		    registers[RD] = ALU;
-		    break;
+				case 1: //EOR
+					ALU = registers[RD] ^ registers[RN];  //EOR
+					issign(ALU);
+					registers[RD] = ALU;
+					break;
 
-		case 2: //SUB
-		    ALU -= registers[RN];
-		    issign(ALU);
-		    registers[RD] = ALU;
-		    break;
+				case 2: //SUB
+					ALU -= registers[RN];
+					issign(ALU);
+					registers[RD] = ALU;
+					break;
 
-		case 3: //SXB
-		    registers[RD] = (signed)registers[RN];
-		    issign(registers[RD]);
-		    break;
+				case 3: //SXB
+					registers[RD] = (signed)registers[RN];
+					issign(registers[RD]);
+					break;
 
-		case 4:  //ADD
-		    ALU = registers[RD] + registers[RN];
+				case 4:  //ADD
+					ALU = registers[RD] + registers[RN];
 
-		    issign(ALU);
-		    flags.carry = iscarry(ALU,registers[RN],flags.carry);
-		    registers[RD] = ALU;
-		    break;
+					issign(ALU);
+					flags.carry = iscarry(ALU,registers[RN],flags.carry);
+					registers[RD] = ALU;
+					break;
 
-		case 5: //ADC
-		    registers[RD] += registers[RN] + flags.carry;
-		    flags.carry = iscarry(ALU,val,flags.carry);
-		    break;
+				case 5: //ADC
+					registers[RD] += registers[RN] + flags.carry;
+					flags.carry = iscarry(ALU,val,flags.carry);
+					break;
 
-		case 6: //LSR
-		    registers[RD] >> registers[RN];
-		    flags.carry = iscarry(registers[RD],val,flags.carry);
-		    issign(registers[RD]);
-		    break;
+				case 6: //LSR
+					registers[RD] >> registers[RN];
+					flags.carry = iscarry(registers[RD],val,flags.carry);
+					issign(registers[RD]);
+					break;
 
-		case 7: //LSL
-		    registers[RD] << registers[RN];
-		    flags.carry = iscarry(registers[RD],val,flags.carry);
-		    issign(registers[RD]);
-		    break;
+				case 7: //LSL
+					registers[RD] << registers[RN];
+					flags.carry = iscarry(registers[RD],val,flags.carry);
+					issign(registers[RD]);
+					break;
 
-		case 8: //TST
-		    ALU = registers[RD] & registers[RN];
-		    issign(ALU);					
-		    break;
+				case 8: //TST
+					ALU = registers[RD] & registers[RN];
+					issign(ALU);					
+					break;
 
-		case 9: //TEQ
-		    registers[RD] ^ registers[RN] + 1;
-		    issign(registers[RD]);
-		    break;
+				case 9: //TEQ
+					registers[RD] ^ registers[RN] + 1;
+					issign(registers[RD]);
+					break;
 
-		case 10: //CMP
-		    ALU = registers[RD] + ~ registers[RN] +1;
-		    issign(ALU);
-		    flags.carry = (ALU,registers[RN],flags.carry);
-		    registers[RD] = ALU;
-		    break;
+				case 10: //CMP
+					ALU = registers[RD] + ~ registers[RN] +1;
+					issign(ALU);
+					flags.carry = (ALU,registers[RN],flags.carry);
+					registers[RD] = ALU;
+					break;
 
-		case 11: //ROR
+				case 11: //ROR
 
-		    for (count = 0; count < registers[RN] ;count ++)
-		    {
-			flags.carry = registers[RN] & 0x0001;
-			if(flags.carry)
-			{
-			    ALU = (registers[RD] >> 1) | 0x80000000;
-			}
-		    }
-		    issign(ALU);
-		    flags.carry = iscarry(ALU,registers[RN],flags.carry);
-		    registers[RD] = ALU;
-		    break;
+					for (count = 0; count < registers[RN] ;count ++)
+					{
+					flags.carry = registers[RN] & 0x0001;
+					if(flags.carry)
+					{
+						ALU = (registers[RD] >> 1) | 0x80000000;
+					}
+					}
+					issign(ALU);
+					flags.carry = iscarry(ALU,registers[RN],flags.carry);
+					registers[RD] = ALU;
+					break;
 
-		case 12: //ORR
-		    ALU = registers[RD] | registers[RN];
-		    issign(ALU);
-		    registers[RD] = ALU;
-		    break;
+				case 12: //ORR
+					ALU = registers[RD] | registers[RN];
+					issign(ALU);
+					registers[RD] = ALU;
+					break;
 
-		case 13:  //MOV
-		    registers[RD] = registers[RN];
-		    issign(registers[RD]);
-		    break;
+				case 13:  //MOV
+					registers[RD] = registers[RN];
+					issign(registers[RD]);
+					break;
 
-		case 14: //BIC
-		    ALU = registers[RD] & ~registers[RN];
-		    issign(registers[RD]);
-		    registers[RD] = ALU;
-		    break;
+				case 14: //BIC
+					ALU = registers[RD] & ~registers[RN];
+					issign(registers[RD]);
+					registers[RD] = ALU;
+					break;
 
-		case 15: //MVN
-		    registers[RD] = ~registers[RN];
-		    issign(registers[RD]);
-		    break;
+				case 15: //MVN
+					registers[RD] = ~registers[RN];
+					issign(registers[RD]);
+					break;
 	    }
 	    break;
 	case 1:
 	    printf("load/store\n");
-	    uint32_t MSmask = MSBmask;
+	    MSmask = MSBmask;
 	    //printf("%04X\n",L);
 	    switch(L)
 	    {
-		//printf("%x\n\n\n",L);
-		case 0:
-		    printf("store\n");
+			//printf("%x\n\n\n",L);
+			case 0:
+				printf("store\n");
 
-		    if(byte == 0)
-		    {
-			printf("word\n");
+				if(byte == 0)
+				{
+				printf("word\n");
 
-			MAR = registers[RN];
-			MBR = registers[RD];
+				MAR = registers[RN];
+				MBR = registers[RD];
 			
-			for(count = 0; count < 4; count ++)
-			{
-			    ((unsigned char*)memory)[MAR ++] = (MBR & MSmask) >> (8 * (3- count));
-			    MSmask = MSmask >> 8;
-			}
+				for(count = 0; count < 4; count ++)
+				{
+					((unsigned char*)memory)[MAR ++] = (MBR & MSmask) >> (8 * (3- count));
+					MSmask = MSmask >> 8;
+				}
 
-		    }	
+				}	
 		
-		else if(byte == 1)
-		    {
-			printf("byte\n");								
-			MBR = registers[RD];
-			((unsigned char*)memory)[MAR] = MBR;
-		    }
-		    break;
-		case 1:
-		    printf("load\n");
-		    if(byte == 1)
-		    {
-			printf("byte\n");
-			MAR = registers[RN];
-			MBR = ((unsigned char*)memory)[MAR];
-			registers[RD] = MBR;
-		    }
-		    else if(byte == 0)
-		    {
-			printf("word\n");
+			else if(byte == 1)
+				{
+				printf("byte\n");								
+				MBR = registers[RD];
+				((unsigned char*)memory)[MAR] = MBR;
+				}
+				break;
+			case 1:
+				printf("load\n");
+				if(byte == 1)
+				{
+				printf("byte\n");
+				MAR = registers[RN];
+				MBR = ((unsigned char*)memory)[MAR];
+				registers[RD] = MBR;
+				}
+				else if(byte == 0)
+				{
+				printf("word\n");
 
-			MAR = registers[RN];
-			MBR = registers[RD];
-			for(count = 4; count > 0; count --)
-			{
-			    MBR = MBR << 8;
-			    MBR += ((unsigned char*)memory)[MAR ++];	
-			}
-			registers[RD] = MBR;
-			printf("value of RD: %04x\n", RD);
-			printf("value for registers[RD]: %04x\n",registers[RD]);
+				MAR = registers[RN];
+				MBR = registers[RD];
+				for(count = 4; count > 0; count --)
+				{
+					MBR = MBR << 8;
+					MBR += ((unsigned char*)memory)[MAR ++];	
+				}
+				registers[RD] = MBR;
+				printf("value of RD: %04x\n", RD);
+				printf("value for registers[RD]: %04x\n",registers[RD]);
 
 
-		    }
+				}
 		    break;
 	    }
 	    break;
@@ -396,18 +414,18 @@ void execute(unsigned short IR2, void *memory)
 			flags.zero = 1;
 		    else
 			flags.zero = 0;
-
 		    break;
 		case 2:
 		    printf("ADD\n");
-		    ALU =registers[RD] + registers[RN];
+		    ALU =registers[RD] + val;
 		    
 		    printf("\nvalue of ALU: %04x\n",ALU);
 		    printf("value of RD: %04x\n",registers[RD]);
 		    printf("value of RN: %04x\n",registers[RN]);
 
 		    issign(ALU);  //if the result is a negative, set the sign flag
-		    flags.carry = iscarry(ALU,registers[RN],flags.carry);
+		    flags.carry = iscarry(ALU,val, flags.carry);
+			registers[RD] = ALU;
 		    break;
 		case 3:
 		    printf("SUB\n");
@@ -421,61 +439,78 @@ void execute(unsigned short IR2, void *memory)
 
 	case 4:
 	    printf("conditional branch\n");
-	    flags.IRactive =0;
-	    switch(condition)
+	   
+		PC -=2;
+
+		printf("\nvalue of condition is: %04x\n",conditions);
+		printf("value of rel_address is: %d\n",rel_address);
+	    switch(conditions)
 	    {
-		case 0:
-		    if(flags.zero = 1)
+		case 0x0000:
+		    if(flags.zero == 1)
 		    {
-			PC += memaddress;
+				PC += rel_address;
+				printf("value of PC is: 0000 %04x\n",PC);
+				IR=0;
 		    }
 		    break;
 
-		case 1:
-		    if(flags.zero = 0)
+		case 0x0001:
+		    if(flags.zero == 0)
 		    {
-			PC += memaddress;
+				PC += rel_address;
+				printf("value of PC is: 0001 %04x\n",PC);
+				IR = 0;
+				flags.IRactive = 0;
 		    }
 		    break;
-		case 2:
-		    if(flags.carry = 1)
+		case 0x0002:
+		    if(flags.carry == 1)
 		    {
-			PC += memaddress;
+				PC += rel_address;
+				printf("value of PC is: 0002 %04x\n",PC);
 		    }
 		    break;
-		case 3:
-		    if(flags.carry = 0)
+		case 0x0003:
+		    if(flags.carry == 0)
 		    {
-			PC += memaddress;
+				PC += rel_address;
+				printf("value of PC is: 0003 %04x\n",PC);
 		    }
 		    break;
-		case 4:
-		    if(flags.sign= 1)
+		case 0x0004:
+		    if(flags.sign == 1)
 		    {
-			PC += memaddress;
+				PC += rel_address;
+				printf("value of PC is: 0004 %04x\n",PC);
 		    }
-		case 5:
+		case 0x0005:
 		     if(flags.sign == 0)
 		     {
-			PC += memaddress;
+				PC += rel_address;
+				printf("value of PC is: 0005 %04x\n",PC);
 		     }
 		     break;
-		case 8:
+		case 0x0008:
 		     if(flags.carry == 1 && flags.zero == 0)
 		     {
-			PC += memaddress;
+				PC += rel_address;
+				printf("value of PC is: 0008 %04x\n",PC);
 		     }
 		     break;
-		case 9:
-		     if(flags.carry == 0 && flags.zero ==1)
+		case 0x0009:
+		     if(flags.carry == 0 && flags.zero == 1)
 		     {
-			PC += memaddress;
+				PC += rel_address;
+				printf("value of PC is: 0009 %04x\n",PC);
 		     }
 		     break;
-		case 0xE:
-		     PC += memaddress;
+		case 0x000E:
+				PC += rel_address;
+				printf("value of PC is: 000E %04x\n",PC);
 		     break;
 	    }
+		//IR =0;
 	    break;
 
 	case 5:
@@ -566,15 +601,15 @@ void execute(unsigned short IR2, void *memory)
 
 void issign(uint32_t ALU)
 {
-    if( (ALU & 0xF0000000) == 1)
+    if( (ALU & 0xF0000000) == 0)
     {
-	flags.sign = 1;
-	flags.zero = 0;
+		flags.sign = 1;
+		flags.zero = 0;
     }
-    else
+	else
     {
-	flags.sign = 0;
-	flags.zero = 1;
+		flags.sign = 0;
+		flags.zero = 1;
     }
 }
 /********************************************************************
