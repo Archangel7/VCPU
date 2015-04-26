@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include "functionDef2.h"
+//#include "CPUDef.h"
 
 /**********************************************
  * Function name: clearFlags
@@ -12,7 +13,7 @@
  *   This function resets the flags to zero
  ***********************************************/
 
-#define numOfRegisters 15
+#define numOfRegisters 16
 #define memlocation 0x00003FFF
 #define MSBmask 0xFF000000
 #define numOfShifts 4
@@ -38,7 +39,6 @@
 #define PC registers[15]
 #define SP registers[13]
 #define LR registers[14]
-#define R  (0x80 >> 8)
 #define sizeofreg 4
 #define registersize 32
 #define dataprocess 0x0000
@@ -79,6 +79,9 @@
 #define imm_CMP 0x0001
 #define push 0
 #define pull 1
+#define bits 8
+#define IR1mask 0xFFFF
+#define IR0shift 16
 
 typedef struct
 {
@@ -98,11 +101,14 @@ uint32_t IR = 0;
 unsigned short IR0 = 0;
 unsigned short IR1 = 0;
 unsigned short RD = 0;
+int counter = 0;
 unsigned short RN = 0;
 unsigned short L = 0;
 unsigned short B = 0;
 unsigned memaddress = 0;
 uint32_t ALU = 0;
+int regcounterr = 0;
+unsigned R = 0;
 unsigned condition = 0;
 unsigned linkbit = 0;
 unsigned offset = 0;
@@ -111,7 +117,7 @@ unsigned short byte;
 unsigned H = 0;
 uint16_t reglist = 0;
 uint8_t regcounter = 0;
-unsigned long registers[numOfRegisters] = {0};
+unsigned long registers[numOfRegisters-1] = {0};
 
 void clearFlags()
 {
@@ -148,7 +154,7 @@ void displayRegisters()
 {
     int count;
 
-    for (count = 0; count <= numOfRegisters-3; count ++)
+    for (count = 0; count <= numOfRegisters-4; count ++)
     {
 	printf("r[%i]:%08lX   ",count, registers[count]);
     }
@@ -184,37 +190,32 @@ void fetch(void *memory)
     int count = 0;
     MAR = PC;
 
-   // printf("value of MAR: %04x\nvalue of PC: %04x\n",MAR,PC);
-
     for (count = 0; count < numOfShifts; count ++)  //shifts 32 bits to the left
     {
 		MBR = MBR << 8;
 		MBR += ((unsigned char *)memory)[MAR + count];
     }
 	PC = PC + sizeof(numOfRegisters);
-    IR = MBR;   
+    IR = MBR;
 }
 void split()
 {
-    IR0 = IR >> 16;
-    IR1 = IR & 0xFFFF;
+	IR0 = IR >> IR0shift;
+	IR1 = IR & IR1mask;
 }
 
 void decode(void *memory)
 {
     if (flags.IRactive == 0)
     {
-		fetch(memory);
-		//printf("value of MARoutside of fetch: %04x\nvalue of PC outside of detch: %04x\n",MAR,PC);
-		split();
-		//printf("%04x\n",IR0);
+		fetch(memory);	
+		split();	
 		flags.IRactive = 1;
 		execute(IR0, memory);
     }
     else
     {
-		split();
-		//printf("%04x\n",IR1);
+		split();	
 		flags.IRactive = 0;
 		execute(IR1, memory);
     }
@@ -343,7 +344,7 @@ void execute(unsigned short IR2, void *memory)
     unsigned short shift  = (IR2 & maskvalue) >> 13;
     unsigned short opcode;
 	unsigned conditions;
-    int count = 0;
+    int count = 0;	
     int regcount = 0;
 	uint32_t MSmask;
 	conditions = ((IR2 & 0xF00) >> 8);
@@ -353,45 +354,39 @@ void execute(unsigned short IR2, void *memory)
     L  = (loadmask & IR2) >> 11;
     RN = (IR2 & RNmask) >> 4;
     RD = (IR2  & RDmask);
+	R = (IR2 & Rmask) >> 8;
     memaddress = (IR2 & memmask);
     linkbit = (IR2 & linkbitmask) >> 12;
     offset = (IR2 & offsetmask);
     operation = (IR2 & operationmask) >> 8;
     H = (IR2 & Hmask) >> 10;
 	MSmask = MSBmask;
-	reglist = (IR2 & reglistmask);
-    //printf("%04x\n",shift);
-   // printf("type: %04X\noperation: %X\nRN: %X\nRD: %X\n", shift, operation, RN, RD);
+	reglist = (IR2 & reglistmask);  
 
     switch(shift)
     {
-		case dataprocess: //data processings
-					dataproc();
+		case dataprocess: 
+				dataproc();
 				break;
-			case 1:
-						//  printf("load/store\n");
-						
-						//printf("%04X\n",L);
+			case 1:						
 				switch(L)
 				{
-					//printf("%x\n\n\n",L);
 					case 0:
-							//printf("store\n");
+							
 							store(memory,MSmask);
 						break;
-					case 1:  //load to memory
+					case 1: 
 							load(memory);		
 						break;
 				}
 				break;
 			case immediateoperations:
-			case immediateoperationss:
-					//immediate operations
+			case immediateoperationss:					
 					opcode = (IR2 & opcodemask) >> 12;
 					immediateopp(opcode,val);
 				break;
 
-			case conditionalbranch: //conditional branch
+			case conditionalbranch: 
 					cbranch(conditions);
 				break;
 
@@ -400,65 +395,112 @@ void execute(unsigned short IR2, void *memory)
 
 				switch(L)
 				{
-				case push:
-					//push	
-					
-					   printf("push\n");					   
-					   MAR =SP;
+				case push:								
+					   printf("push\n");
+					   //MAR = SP;
+					   
 					   if(H == 0)  //psh low registers
-					   {
-							printf("push low registers\n");
+					   {						   
+									printf("push low registers\n");
 										
-							for(regcount = 8; regcount >= 0; regcount --)
+									for(regcount = (bits-1); regcount >= 0; regcount --)
+									{								
+										if(((reglist >> regcount)&1) == 1)
+										{
+											//printf("reaches here");
+											MBR = registers[regcount];
+											for (count = 0; count < 4; count ++)
+											{
+												--SP;
+												SP = SP & memlocation;
+												((uint8_t *)memory)[SP] = (MBR >> bits*count);
+											}
+										}
+									}																	
+						   if(R == 1)  //extra push
+						   {
+							   printf("extra push\n");
+							    LR=PC;
+								MBR = LR;
+								for (count = 0; count < 4; count ++)
+								{
+									--SP;
+									SP = SP & memlocation;
+									((uint8_t *)memory)[SP] = (MBR >> bits * count);
+								}
+						   }						   
+					   }
+						else if(H==1)  //psh high registers
+						{
+							printf("push high reg\n");
+							for(regcounterr = bits; regcounterr >= 0; regcounterr --)  //high registers
 							{								
-								if(((reglist >> regcount)&1) == 1)
+								if(((reglist >> regcounterr)&1) == 1)
 								{
 									//printf("reaches here");
-									MBR = registers[regcount];
+									MBR = registers[regcounterr + bits];
 									for (count = 0; count < 4; count ++)
 									{
-										--MAR;
-										MAR = MAR & memlocation;
-										((uint8_t *)memory)[MAR] = MBR >> (8*count);
+										--SP;
+										SP = SP & memlocation;
+										((uint8_t *)memory)[SP] = (MBR >> bits*count);
 									}
 								}
-							}
-							printf("%04x\n",MAR);							
-						}
-
-							else if(H==1)  //psh high registers
-							{
-
-								SP = SP - 1;
-								SP = (MAR & bitmask);
-								printf("push high registers\n");
-
-								for(regcount = 0; regcount < 8; regcount++)
-								{
-									//if(((reglist>>regcount)&1) == 1)
-									//	{
-									for (regcount = 0; regcount < registersize; regcount ++)
-									{
-										((uint8_t *)memory)[SP] = registers[(regcounter + 8)] >> 1;
-									}
-									//}
-								}
-								//printf("%04x\n",registers[(regcounter+8)]);
-					   }
-					   
+							}									
+						}					   
 					break;
-
 				case pull:
-					printf("pull\n");		    
+					printf("pull\n");	
+					
 					   if(H == 0)
-					   {
-						 printf("pull low registers\n");
-					   }
+					   {						   
+						    if(R == 1)  //extra pull
+							{
+								printf("extra pull\n");
+								
+								MBR = ((uint16_t*)memory)[SP];
+								for (count = 0; count < 4; count ++)
+								{
+									MBR = (MBR << bits);
+									MBR += ((uint8_t *)memory)[SP ++];
+								}
+								PC = MBR;
+								flags.IRactive = 0;
+							 }
+							
+						         printf("pull low registers\n");
+								 for (counter = 0; counter < bits; counter ++) //pulling in reverse
+								 {
+									 if(((reglist >> counter)&1) == 1)
+									 {
+										MBR = ((uint16_t*)memory)[SP];
+										for (count = 0; count < 4; count ++)
+										{
+											MBR = (MBR << bits);
+											MBR += ((uint8_t *)memory)[SP ++];
+										}
+										registers[counter] = MBR;
+									 }
+								 }								 
+					    }
 					   else if(H==1)
-					   {
-							printf("pull high registers\n");
-					   }
-		     
+					   {						   
+							printf("pull high registers\n");						
+								for (counter = bits; counter < numOfRegisters; counter ++) //pulling in reverse
+								{
+									 if(((reglist >> counter)&1) == 1)
+									 {
+										MBR = ((uint16_t*)memory)[SP];
+										for (count = 0; count < 4; count ++)
+										{
+											MBR = MBR << bits;
+											MBR += ((uint8_t *)memory)[SP ++];
+										}
+									 }
+									 registers[counter + bits] = MBR;
+								 }
+						    }       
+				
 					break;
 				}
 				break;
@@ -476,7 +518,6 @@ void execute(unsigned short IR2, void *memory)
 				}
 				break;
 			case stop:
-				//printf("stop\n");
 				flags.stopp = 1;
 				break;
 			default:
@@ -501,27 +542,21 @@ void issign(uint32_t ALU)
 
 void cbranch(unsigned conditions)
 {
-	 //  printf("conditional branch\n");
-		PC -=2;
-		//printf("\nvalue of condition is: %04x\n",conditions);
-		//printf("value of rel_address is: %d\n",rel_address);
 	    switch(conditions)
-	    {
-					
+	    {					
 				case zset:
 					if(flags.zero == 1)
 					{
-						PC += rel_address;
-					//	printf("value of PC is: 0000 %04x\n",PC);
-						IR=0;
+						PC += rel_address;						
+						IR = 0;
+						flags.IRactive = 0;
 					}
 					break;
 
 				case zclear:
 					if(flags.zero == 0)
 					{
-						PC += rel_address;
-						//printf("value of PC is: 0001 %04x\n",PC);
+						PC += rel_address;					
 						IR = 0;
 						flags.IRactive = 0;
 					}
@@ -529,48 +564,55 @@ void cbranch(unsigned conditions)
 				case cset:
 					if(flags.carry == 1)
 					{
-						PC += rel_address;
-					//	printf("value of PC is: 0002 %04x\n",PC);
+						PC += rel_address;						
+						IR = 0;
+						flags.IRactive = 0;
 					}
 					break;
 				case cclear:
 					if(flags.carry == 0)
 					{
-						PC += rel_address;
-						//printf("value of PC is: 0003 %04x\n",PC);
+						PC += rel_address;						
+						IR = 0;
+						flags.IRactive = 0;
 					}
 					break;
 				case nset:
 					if(flags.sign == 1)
 					{
-						PC += rel_address;
-						//printf("value of PC is: 0004 %04x\n",PC);
+						PC += rel_address;						
+						IR = 0;
+						flags.IRactive = 0;
 					}
 				case nclear:
 					 if(flags.sign == 0)
 					 {
-						PC += rel_address;
-						//printf("value of PC is: 0005 %04x\n",PC);
+						PC += rel_address;						
+						IR = 0;
+						flags.IRactive = 0;
 					 }
 					 break;
 				case cset_zclear:
 					 if(flags.carry == 1 && flags.zero == 0)
 					 {
-						PC += rel_address;
-						//printf("value of PC is: 0008 %04x\n",PC);
+						PC += rel_address;						
+						IR = 0;
+						flags.IRactive = 0;
 					 }
 					 break;
 				case cclear_zset:
 					 if(flags.carry == 0 && flags.zero == 1)
 					 {
 						PC += rel_address;
-					//	printf("value of PC is: 0009 %04x\n",PC);
+						IR = 0;
+						flags.IRactive = 0;
 					 }
 					 break;
 
 				case ignored:
-						PC += rel_address;
-						//printf("value of PC is: 000E %04x\n",PC);
+						PC += rel_address;						
+						IR = 0;
+						flags.IRactive = 0;
 					 break;
 	    }
 }
@@ -580,23 +622,19 @@ void immediateopp(unsigned short opcode,unsigned val)
 	switch(opcode)
 	    {
 		case imm_MOV:
-		 //   printf("MOV\n");
+		
 		    registers[RD] = val;
 		    break;
 		case imm_CMP:
-		  //  printf("CMP\n");
+		  
 		    if((registers[RD] - val) == 0)
 			flags.zero = 1;
 		    else
 			flags.zero = 0;
 		    break;
 		case imm_ADD:
-		 //   printf("ADD\n");
-		    ALU = registers[RD] + val;
-		    
-		   // printf("\nvalue of ALU: %04x\n",ALU);
-		   // printf("value of RD: %04x\n",registers[RD]);
-		   // printf("value of RN: %04x\n",registers[RN]);
+		 
+		    ALU = registers[RD] + val;		  
 		    issign(ALU);  //if the result is a negative, set the sign flag
 		    flags.carry = iscarry(ALU,val, flags.carry);
 			registers[RD] = ALU;
@@ -613,7 +651,7 @@ void immediateopp(unsigned short opcode,unsigned val)
 void store(void *memory,uint32_t MSmask)
 {
 	int count = 0;			
-	//printf("store\n");
+				//printf("store\n");
 				if(byte == 0)
 				{
 					//printf("word\n");
@@ -655,9 +693,7 @@ void load(void *memory)
 						MBR += ((unsigned char*)memory)[MAR ++];	
 					}
 				}
-				registers[RD] = MBR;
-			//	printf("value of RD: %04x\n", RD);
-			//	printf("value for registers[RD]: %04x\n",registers[RD]);
+				registers[RD] = MBR;			
 }
 
 
