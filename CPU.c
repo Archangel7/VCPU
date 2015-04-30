@@ -119,6 +119,11 @@ uint16_t reglist = 0;
 uint8_t regcounter = 0;
 unsigned long registers[numOfRegisters-1] = {0};
 
+/************************************
+* Function name: clearFlags
+* Description: 
+*   This function clears the flags.
+************************************/
 void clearFlags()
 {
     flags.stopp  = 0;
@@ -198,12 +203,26 @@ void fetch(void *memory)
 	PC = PC + sizeof(numOfRegisters);
     IR = MBR;
 }
+/****************************************************************
+* Function name: split
+*  Description:
+*    This function masks and shifts the IR register and spilts
+*    it into 2 16 bit register (IR0,IR1)
+****************************************************************/
 void split()
 {
 	IR0 = IR >> IR0shift;
 	IR1 = IR & IR1mask;
 }
-
+/****************************************************
+* Function name: decode
+* Description:
+*  This function takes a pointer to memory, 
+*  checks the IRactive flag and while its not set
+*  it fetches an instruction, splits and decodes
+*  if the IRactive flag is set then it decodes the 
+*  2nd part of the instruction.
+****************************************************/
 void decode(void *memory)
 {
     if (flags.IRactive == 0)
@@ -220,6 +239,13 @@ void decode(void *memory)
 		execute(IR1, memory);
     }
 }
+/**************************************
+* Function name: go
+* Description: 
+*   This function checks the stop flag
+*   and while its not set it decodes the 
+*   instruction
+***************************************/
 void go(void *memory)
 {
     while (flags.stopp != 1)
@@ -228,6 +254,12 @@ void go(void *memory)
     }
 }
 
+/*******************************************
+* Function name: dataproc
+* Description: 
+*   This function performs the specific operation
+*   according to the instruction it takes.
+********************************************/
 void dataproc()
 {
 	int count = 0;
@@ -265,7 +297,7 @@ void dataproc()
 					break;
 
 				case ADC: 
-					registers[RD] += registers[RN] + flags.carry;
+					ALU = registers[RD] + registers[RN] + flags.carry;
 					flags.carry = iscarry(ALU,registers[RN],flags.carry);
 					break;
 
@@ -337,7 +369,14 @@ void dataproc()
 	    }
 }
 
-
+/****************************************************
+* Function name: execute
+* Description:
+*    This function takes in a 16-bit instruction
+*    and a pointer to memory and interprets the 
+*    the instruction and performs the corresponding
+*    task.
+****************************************************/
 void execute(unsigned short IR2, void *memory)
 {
     unsigned val = (IR2 & valuemask) >> 4;
@@ -407,7 +446,6 @@ void execute(unsigned short IR2, void *memory)
 									{								
 										if(((reglist >> regcount)&1) == 1)
 										{
-											//printf("reaches here");
 											MBR = registers[regcount];
 											for (count = 0; count < 4; count ++)
 											{
@@ -419,7 +457,7 @@ void execute(unsigned short IR2, void *memory)
 									}																	
 						   if(R == 1)  //extra push
 						   {
-							   printf("extra push\n");
+							 //  printf("extra push\n");
 							    LR=PC;
 								MBR = LR;
 								for (count = 0; count < 4; count ++)
@@ -526,6 +564,15 @@ void execute(unsigned short IR2, void *memory)
 			}
 }
 
+/****************************************************
+* Function name: issign
+* Description: 
+*   This function checks the most
+*   significant bit in an arithmetic operation
+*   if its set then it sets the sign flag and 
+*   reset the zero flag, if its not set then
+*   if sets the zero flag and resets the sign flag  
+*****************************************************/
 void issign(uint32_t ALU)
 {
     if( (ALU & 0xF0000000) == 0)
@@ -539,7 +586,13 @@ void issign(uint32_t ALU)
 		flags.zero = 1;
     }
 }
-
+/********************************************
+* Function name: cbranch
+* Description:
+*   This function takes in a condition code
+*   and from that determines which condition matches
+*   and performs the specific task.
+********************************************/
 void cbranch(unsigned conditions)
 {
 	    switch(conditions)
@@ -616,7 +669,13 @@ void cbranch(unsigned conditions)
 					 break;
 	    }
 }
-
+/*********************************************
+*  Function name: immediateopp
+*  Description: 
+*    This function takes in an opcode and a 8-bit masked
+*    value and from that it matches the cases and performs
+*    the appropriate task.    
+**********************************************/
 void immediateopp(unsigned short opcode,unsigned val)
 {
 	switch(opcode)
@@ -648,6 +707,12 @@ void immediateopp(unsigned short opcode,unsigned val)
 		    break;
 	    }
 }
+/**********************************************
+* Function name: store
+*  Description: 
+*     This function takes a pointer to memory
+*     and a mask an then stores data onto memory
+************************************************/
 void store(void *memory,uint32_t MSmask)
 {
 	int count = 0;			
@@ -670,7 +735,12 @@ void store(void *memory,uint32_t MSmask)
 					((unsigned char*)memory)[MAR] = MBR;
 				}
 }
-
+/******************************************************
+* Function name: load
+* Description:
+*    This function takes in a pointer to 
+*    memory and loads data from memory onto the registers
+*********************************************************/
 void load(void *memory)
 {
 			int count = 0;
