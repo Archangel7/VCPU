@@ -9,9 +9,10 @@
 #include <stdlib.h>
 #include <time.h>
 #include <ctype.h>
-//#include "CPU2.c"
 #include "functionDef2.h"
+
 #define inputMax 10
+#define hexmemsize 0x4000
 #define memsize 16384        //size of computer memory 
 #define fileNameLength 90
 #define cols 16
@@ -101,16 +102,12 @@ void memDump(void *memptr, unsigned offset, unsigned length)
     int count;
     int counter;
 
-    for (count = offset; count < (offset + length); count += cols)
+	for (count = offset; count < (offset + length) && count <= hexmemsize; count += cols)
     {
 	printf("\n\r");
 	printf(" %04x: ",count);    // displays the offset
 
-	if(length== 0x4000)
-	{
-	    break;
-	}
-
+	
 	// didsplays the raw hex values of the file contents
 	counter = count;
 	while(counter <(count+cols))
@@ -175,37 +172,37 @@ check:
 	goto check;
     }
 
-    if(format == "%X")  //deals with hexadecimal values
+    if(strcmp(format,"%X")==0)  //deals with hexadecimal values
     {
-	for (count = 0; count < strlen(input); count ++)
-	{
-	    if(isxdigit(input[count])==0)
-		incorrect = 1;
-	}
+		for (count = 0; count < strlen(input); count ++)
+		{
+			if(isxdigit(input[count])==0)
+			incorrect = 1;
+		}
 
-	if(incorrect == 1)
-	{
-	    printf("Please enter a valid hex digit: ");
-	    goto check;
-	}
-	sscanf(input,"%X",&retvalue);
+		if(incorrect == 1)
+		{
+			printf("Please enter a valid hex digit: ");
+			goto check;
+		}
+		sscanf(input,"%X",&retvalue);
     }
 
-    if(format == "%i")  // deals with integer values
+    if(strcmp(format,"%i")==0)  // deals with integer values
     {
-	for (count = 0; count < strlen(input); count ++)
-	{
-	    if(isdigit(input[count])==0)
-		incorrect = 1;
-	}
-	if(incorrect == 1)
-	{
-	    printf("Please enter a valid integer: ");
-	    goto check;
-	}
-	sscanf(input,"%i",&retvalue);
-    }
-    return retvalue;
+		for (count = 0; count < strlen(input); count ++)
+		{
+			if(isdigit(input[count])==0)
+			incorrect = 1;
+		}
+		if(incorrect == 1)
+		{
+			printf("Please enter a valid integer: ");
+			goto check;
+		}
+		sscanf(input,"%i",&retvalue);
+		}
+		return retvalue;
 }
 /***************************************************
  *Function name: writeFile
@@ -363,5 +360,5 @@ void resetRegisters()
 void trace(void *memory)
 {
     decode(memory);
-   // displayRegisters();
+    displayRegisters();
 }
