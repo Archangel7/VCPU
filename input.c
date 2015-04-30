@@ -7,7 +7,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
-#include "functionDef.h"
+#include "functionDef2.h"
 #define inputMax 10
 #define memMax 0x4000
 /**************************************
@@ -118,8 +118,9 @@ backlength:
 		    break;
 		case'z':
 		case'Z':
-		    printf("Rgisters have been reset\n");
+			//printf("Rgisters have been reset\n");
 		    clearRegisters();
+			clearFlags();
 		    break;
 		case'r':
 		case'R':
