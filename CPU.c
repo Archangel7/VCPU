@@ -5,14 +5,6 @@
 #include <stdio.h>
 #include <stdint.h>
 #include "functionDef2.h"
-//#include "CPUDef.h"
-
-/**********************************************
- * Function name: clearFlags
- * Description: 
- *   This function resets the flags to zero
- ***********************************************/
-
 #define numOfRegisters 16
 #define memlocation 0x00003FFF
 #define MSBmask 0xFF000000
