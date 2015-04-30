@@ -5,9 +5,7 @@
 * Creation Date: january 30, 2015
 *
 *****************************************/
-#include "input.h"
-#include "functionDef.h"
-#include "functionBody.h"
+#include "functionDef2.h"
 #define memsize 16384
 
 unsigned char MEMORY[memsize]; // 16KBytes for computer memory
