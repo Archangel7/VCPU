@@ -1,4 +1,5 @@
 #include <stdint.h>
+//#include "CPUDef.h"
 /***********************************
 * File: functionDef.h
 * Author: Michael Cox
@@ -20,10 +21,16 @@ void clearRegisters();
 void clearFlags();
 void issign(uint32_t);
 void reset();
+void cbranch();
 void split();
 void go(void *);
 void displayRegisters();
+void dataproc();
 void fetch(void *memory);
 void decode(void *);
 void execute(unsigned short,void *);
+void load(void *memory);
+void store(void *memory,uint32_t MSmask);
 int iscarry(unsigned long op1, unsigned long op2, unsigned c);
+void immediateopp(unsigned short opcode,unsigned val);
+void cbranch(unsigned conditions);
